@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"log"
 	"net"
-	"strings"
 	"sync"
 )
 
@@ -18,13 +17,32 @@ const (
 )
 
 type Command struct {
-	CommandType CommandType `json:"commandType"`
-	Msg         string      `json:"msg"`
+	CommandType CommandType `json:"type"`
+	From        string      `json:"from"`
+	Message     string      `json:"message"`
+}
+
+type Client struct {
+	// The nickname the client wants to be associated with.
+	Alias string
+
+	// The connection associated with this client.
+	Connection net.Conn
+}
+
+// Use this method to message a client through its existing connection.
+func (c *Client) Message(msg string) {
+	c.Connection.Write([]byte(msg))
+}
+
+// Kills the connection to the client.
+func (c *Client) Disconnect() {
+	c.Connection.Close()
 }
 
 var (
-	connectionPool = make(map[string]net.Conn)
-	mu             sync.Mutex
+	clientPool = make(map[string]*Client)
+	mu         sync.Mutex
 )
 
 func main() {
@@ -42,11 +60,11 @@ func main() {
 			log.Fatal(err)
 		}
 
-		go handleConnection(conn)
+		go handle(conn)
 	}
 }
 
-func handleConnection(conn net.Conn) {
+func handle(conn net.Conn) {
 	b := make([]byte, 1024)
 	n, err := conn.Read(b)
 	if err != nil {
@@ -59,43 +77,36 @@ func handleConnection(conn net.Conn) {
 		log.Fatal(err)
 	}
 
-	hostName := getHostName(conn.RemoteAddr().String())
-
 	switch cmd.CommandType {
 	case Connect:
-		if connectionExists(hostName) {
-			log.Printf("Client %s already connected...\n", hostName)
+		mu.Lock()
+		defer mu.Unlock()
+
+		// Ensure the client with the same alias does not already exist
+		// since they must be unique in our client pool.
+		_, exists := clientPool[cmd.From]
+		if exists {
+			log.Printf("Client with alias '%s' already exists.\n", cmd.From)
 			conn.Close()
 			break
 		}
 
-		addConnection(hostName, conn)
+		clientPool[cmd.From] = &Client{
+			Alias:      cmd.From,
+			Connection: conn,
+		}
 
-		log.Printf("Client %s connected...\n", hostName)
+		log.Printf("Client with alias '%s' added to the client pool.\n", cmd.From)
+		break
+	case Message:
+		for _, c := range clientPool {
+			log.Printf("Message from '%s': %s\n", cmd.From, cmd.Message)
+			c.Message(cmd.Message)
+		}
+		conn.Close()
 		break
 	default:
-		log.Printf("Command '%s' not supported.\n", cmd.CommandType)
+		log.Printf("Command type '%s' not supported.\n", cmd.CommandType)
 		conn.Close()
 	}
-}
-
-func addConnection(connName string, c net.Conn) {
-	mu.Lock()
-	defer mu.Unlock()
-
-	connectionPool[connName] = c
-}
-
-func connectionExists(connName string) bool {
-	mu.Lock()
-	defer mu.Unlock()
-	_, exists := connectionPool[connName]
-
-	return exists
-}
-
-func getHostName(addr string) string {
-	i := strings.LastIndex(addr, ":")
-
-	return addr[:i]
 }
