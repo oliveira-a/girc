@@ -1,25 +1,40 @@
 package main
 
 import (
-	"fmt"
+	"encoding/json"
 	"log"
 	"net"
+	"strings"
+	"sync"
 )
 
-const PORT = ":2000"
+const PORT = "2000"
+
+type CommandType int
+
+const (
+	Connect CommandType = iota
+	Message
+)
 
 type Command struct {
-	msg string
+	CommandType CommandType `json:"commandType"`
+	Msg         string      `json:"msg"`
 }
 
+var (
+	connectionPool = make(map[string]net.Conn)
+	mu             sync.Mutex
+)
+
 func main() {
-	l, err := net.Listen("tcp", PORT)
+	l, err := net.Listen("tcp", ":"+PORT)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer l.Close()
 
-	log.Println("Listening on port 2000.")
+	log.Printf("Listening on port %s...", PORT)
 
 	for {
 		conn, err := l.Accept()
@@ -27,19 +42,60 @@ func main() {
 			log.Fatal(err)
 		}
 
-		go handle(conn)
+		go handleConnection(conn)
 	}
 }
 
-func handle(c net.Conn) {
-	defer c.Close()
-
+func handleConnection(conn net.Conn) {
 	b := make([]byte, 1024)
-	n, err := c.Read(b)
+	n, err := conn.Read(b)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Printf("Message from '%s': %s",
-		c.RemoteAddr(), b[:n])
+	var cmd Command
+	err = json.Unmarshal(b[:n], &cmd)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	hostName := getHostName(conn.RemoteAddr().String())
+
+	switch cmd.CommandType {
+	case Connect:
+		if connectionExists(hostName) {
+			log.Printf("Client %s already connected...\n", hostName)
+			conn.Close()
+			break
+		}
+
+		addConnection(hostName, conn)
+
+		log.Printf("Client %s connected...\n", hostName)
+		break
+	default:
+		log.Printf("Command '%s' not supported.\n", cmd.CommandType)
+		conn.Close()
+	}
+}
+
+func addConnection(connName string, c net.Conn) {
+	mu.Lock()
+	defer mu.Unlock()
+
+	connectionPool[connName] = c
+}
+
+func connectionExists(connName string) bool {
+	mu.Lock()
+	defer mu.Unlock()
+	_, exists := connectionPool[connName]
+
+	return exists
+}
+
+func getHostName(addr string) string {
+	i := strings.LastIndex(addr, ":")
+
+	return addr[:i]
 }
