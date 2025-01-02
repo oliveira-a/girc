@@ -5,25 +5,14 @@ import (
 	"log"
 	"net"
 	"sync"
+
+	"github.com/oliveira-a/girc/internal/shared"
 )
 
 const PORT = "2000"
 
-type CommandType int
-
-const (
-	Connect CommandType = iota
-	Message
-)
-
-type Command struct {
-	CommandType CommandType `json:"type"`
-	From        string      `json:"from"`
-	Message     string      `json:"message"`
-}
-
 type Client struct {
-	// The nickname the client wants to be associated with.
+	// The alias associated with the client.
 	Alias string
 
 	// The connection associated with this client.
@@ -32,7 +21,16 @@ type Client struct {
 
 // Use this method to message a client through its existing connection.
 func (c *Client) Message(msg string) {
-	c.Connection.Write([]byte(msg))
+	m := &shared.ClientMessage{
+		From:    c.Alias,
+		Content: msg,
+	}
+
+	b, err := json.Marshal(m)
+	if err != nil {
+		log.Fatal(err)
+	}
+	c.Connection.Write(b)
 }
 
 // Kills the connection to the client.
@@ -71,14 +69,14 @@ func handle(conn net.Conn) {
 		log.Fatal(err)
 	}
 
-	var cmd Command
+	var cmd shared.Command
 	err = json.Unmarshal(b[:n], &cmd)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	switch cmd.CommandType {
-	case Connect:
+	case shared.Connect:
 		mu.Lock()
 		defer mu.Unlock()
 
@@ -98,12 +96,11 @@ func handle(conn net.Conn) {
 
 		log.Printf("Client with alias '%s' added to the client pool.\n", cmd.From)
 		break
-	case Message:
+	case shared.Message:
+		log.Printf("Message from '%s': %s\n", cmd.From, cmd.Content)
 		for _, c := range clientPool {
-			log.Printf("Message from '%s': %s\n", cmd.From, cmd.Message)
-			c.Message(cmd.Message)
+			c.Message(cmd.Content)
 		}
-		conn.Close()
 		break
 	default:
 		log.Printf("Command type '%s' not supported.\n", cmd.CommandType)
