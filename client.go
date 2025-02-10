@@ -10,8 +10,6 @@ import (
 	"os"
 
     "github.com/pterm/pterm"
-
-	"github.com/oliveira-a/girc/internal/shared"
 )
 
 var hostFlag = flag.String("h", "", "the irc host. i.e. localhost")
@@ -31,8 +29,8 @@ func main() {
 	go handleServerInput(c)
 
 	// todo: refactor this in to a helper function
-	cmd := &shared.Command{
-		CommandType: shared.Connect,
+	cmd := &Command{
+		CommandType: Connect,
 		From:        *aliasFlag,
 		Content:     "",
 	}
@@ -44,8 +42,8 @@ func main() {
 		fmt.Print(*aliasFlag + "> ")
 		m, _ := r.ReadString('\n')
 
-		cmd := &shared.Command{
-			CommandType: shared.Message,
+		cmd := &Command{
+			CommandType: Message,
 			From:        *aliasFlag,
 			Content:     m,
 		}
@@ -68,7 +66,7 @@ func handleServerInput(c net.Conn) {
 			log.Fatal(err)
 		}
 
-		var msg shared.ClientMessage
+		var msg ClientMessage
 		err = json.Unmarshal(b[:n], &msg)
 		if err != nil {
 			log.Fatal(err)

@@ -5,8 +5,6 @@ import (
 	"log"
 	"net"
 	"sync"
-
-	"github.com/oliveira-a/girc/internal/shared"
 )
 
 const PORT = "2000"
@@ -20,7 +18,7 @@ type Client struct {
 }
 
 // Use this method to message a client through its existing connection.
-func (c *Client) Message(m shared.ClientMessage) {
+func (c *Client) Message(m ClientMessage) {
 	b, err := json.Marshal(m)
 	if err != nil {
 		log.Fatal(err)
@@ -68,14 +66,14 @@ func handle(conn net.Conn) {
 			log.Fatal(err)
 		}
 
-		var cmd shared.Command
+		var cmd Command
 		err = json.Unmarshal(b[:n], &cmd)
 		if err != nil {
 			log.Fatal(err)
 		}
 
 		switch cmd.CommandType {
-		case shared.Connect:
+		case Connect:
 			mu.Lock()
 			// Clients must have a unique alias.
 			_, exists := clientPool[cmd.From]
@@ -94,10 +92,10 @@ func handle(conn net.Conn) {
 			log.Printf("Client with alias '%s' added to the client pool.\n", cmd.From)
             mu.Unlock()
 			break
-		case shared.Message:
+		case Message:
 			log.Printf("Message from '%s': %s\n", cmd.From, cmd.Content)
 			for _, c := range clientPool {
-				cm := &shared.ClientMessage{
+				cm := &ClientMessage{
 					From:    cmd.From,
 					Content: cmd.Content,
 				}
