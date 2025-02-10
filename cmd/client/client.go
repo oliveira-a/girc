@@ -9,6 +9,8 @@ import (
 	"net"
 	"os"
 
+    "github.com/pterm/pterm"
+
 	"github.com/oliveira-a/girc/internal/shared"
 )
 
