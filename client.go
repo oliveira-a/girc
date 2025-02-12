@@ -9,7 +9,7 @@ import (
 	"net"
 	"os"
 
-    "github.com/pterm/pterm"
+	"github.com/pterm/pterm"
 )
 
 var hostFlag = flag.String("h", "", "the irc host. i.e. localhost")

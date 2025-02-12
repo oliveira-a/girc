@@ -1,7 +1,15 @@
 all: server client
 
-server:
-	go build server.go shared.go
+clean:
+	rm server client
 
-client:
+fmt: 
+	go fmt *.go
+run:
+	go run server.go client.go shared.go
+
+server:
+	go build server.go shared.go client.go
+
+chat:
 	go build client.go shared.go

@@ -1,0 +1,17 @@
+The _server_ MUST:
+    1. handle a new connection from a client.
+    2. relay a message from a client to the rest of the
+    clients without relaying back to the author client.
+    3. handle the following messages from the _client_:
+        1. CONNECT <nickname>
+        2. MESSAGE <the message>
+
+The _client_ MUST:
+    1. Accept a user alias + server address when it starts.
+        1. this would then create a message like "CONNECT
+        andre"
+    2. Send a message to the server, i.e. "MESSAGE the
+    message".
+    3. Handle the following commands from the _user_:
+        1. /quit -> kills the connection
+

@@ -1,13 +1,12 @@
 package main
 
 import (
-	"encoding/json"
 	"log"
 	"net"
+	"strings"
 	"sync"
+    "net"
 )
-
-const PORT = "2000"
 
 type Client struct {
 	// The alias associated with the client.
@@ -18,18 +17,16 @@ type Client struct {
 }
 
 // Use this method to message a client through its existing connection.
-func (c *Client) Message(m ClientMessage) {
-	b, err := json.Marshal(m)
-	if err != nil {
-		log.Fatal(err)
-	}
-	c.Connection.Write(b)
+func (c *Client) Message(from string, content string) {
+	c.Connection.Write([]byte(from + ": " + content + "\n"))
 }
 
 // Kills the connection to the client.
 func (c *Client) Disconnect() {
 	c.Connection.Close()
 }
+
+const PORT = "2000"
 
 var (
 	clientPool = make(map[string]*Client)
@@ -59,6 +56,8 @@ func main() {
 }
 
 func handle(conn net.Conn) {
+    var alias string
+
 	for {
 		b := make([]byte, 1024)
 		n, err := conn.Read(b)
@@ -66,45 +65,42 @@ func handle(conn net.Conn) {
 			log.Fatal(err)
 		}
 
-		var cmd Command
-		err = json.Unmarshal(b[:n], &cmd)
-		if err != nil {
-			log.Fatal(err)
-		}
+		msg := strings.Fields(string(b[:n]))
+		cmd, content := strings.ToUpper(msg[0]), strings.Join(msg[1:], " ")
 
-		switch cmd.CommandType {
-		case Connect:
+		switch cmd {
+		case "CONNECT":
 			mu.Lock()
+
 			// Clients must have a unique alias.
-			_, exists := clientPool[cmd.From]
-			if exists {
-				log.Printf("Client with alias '%s' already exists.\n", cmd.From)
-				conn.Close()
-                mu.Unlock()
-				break
-			}
-
-			clientPool[cmd.From] = &Client{
-				Alias:      cmd.From,
-				Connection: conn,
-			}
-
-			log.Printf("Client with alias '%s' added to the client pool.\n", cmd.From)
-            mu.Unlock()
-			break
-		case Message:
-			log.Printf("Message from '%s': %s\n", cmd.From, cmd.Content)
-			for _, c := range clientPool {
-				cm := &ClientMessage{
-					From:    cmd.From,
-					Content: cmd.Content,
+			// todo: ensure content is an acceptable alias (e.g. no spaces).
+			_, exists := clientPool[content]
+			if !exists {
+				clientPool[content] = &Client{
+					Alias:      content,
+					Connection: conn,
 				}
-				c.Message(*cm)
+
+				log.Printf("Client with alias '%s' added to the client pool.\n", content)
+
+				alias = content
+			} else {
+				log.Printf("Client with alias '%s' already exists.\n", content)
 			}
+
+			mu.Unlock()
+			break
+		case "MESSAGE":
+            if alias != "" {
+                for _, c := range clientPool {
+                    c.Message(alias, content)
+                }
+            } else {
+                conn.Write([]byte("Alias not set. Use `CONNECT <alias>`.\n"))
+            }
 			break
 		default:
-			log.Printf("Command type '%s' not supported.\n", cmd.CommandType)
-			conn.Close()
+			log.Printf("Command type '%s' not supported.\n", cmd)
 		}
 	}
 }
