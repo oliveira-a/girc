@@ -5,7 +5,6 @@ import (
 	"net"
 	"strings"
 	"sync"
-    "net"
 )
 
 type Client struct {
@@ -56,7 +55,7 @@ func main() {
 }
 
 func handle(conn net.Conn) {
-    var alias string
+	var alias string
 
 	for {
 		b := make([]byte, 1024)
@@ -91,13 +90,13 @@ func handle(conn net.Conn) {
 			mu.Unlock()
 			break
 		case "MESSAGE":
-            if alias != "" {
-                for _, c := range clientPool {
-                    c.Message(alias, content)
-                }
-            } else {
-                conn.Write([]byte("Alias not set. Use `CONNECT <alias>`.\n"))
-            }
+			if alias != "" {
+				for _, c := range clientPool {
+					c.Message(alias, content)
+				}
+			} else {
+				conn.Write([]byte("Alias not set. Use `CONNECT <alias>`.\n"))
+			}
 			break
 		default:
 			log.Printf("Command type '%s' not supported.\n", cmd)
