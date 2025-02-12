@@ -1,10 +1,10 @@
 # PMIRC - Poor man's IRC
 
 ## Requirements
-go 1.23.2
-make
+- go 1.23.2
+- make
 
-## Run the server
+## Run
 
 ```bash
 make run
