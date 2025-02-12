@@ -6,7 +6,15 @@
 
 ## Run
 
+## Server
+
 ```bash
-make run
+go run server.go
+```
+
+## Client
+
+```bash
+go run client.go -h <host> -p <port> -a <alias>
 ```
 
