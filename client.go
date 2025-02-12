@@ -2,14 +2,11 @@ package main
 
 import (
 	"bufio"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
 	"net"
 	"os"
-
-	"github.com/pterm/pterm"
 )
 
 var hostFlag = flag.String("h", "", "the irc host. i.e. localhost")
@@ -29,29 +26,17 @@ func main() {
 	go handleServerInput(c)
 
 	// todo: refactor this in to a helper function
-	cmd := &Command{
-		CommandType: Connect,
-		From:        *aliasFlag,
-		Content:     "",
-	}
-	b, err := json.Marshal(cmd)
-	c.Write(b)
+	c.Write([]byte("CONNECT " + *aliasFlag))
 
 	r := bufio.NewReader(os.Stdin)
 	for {
 		fmt.Print(*aliasFlag + "> ")
 		m, _ := r.ReadString('\n')
 
-		cmd := &Command{
-			CommandType: Message,
-			From:        *aliasFlag,
-			Content:     m,
-		}
-		b, err := json.Marshal(cmd)
 		if err != nil {
 			log.Fatal(err)
 		}
-		_, err = c.Write(b)
+		_, err = c.Write([]byte("MESSAGE " + m))
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -66,12 +51,6 @@ func handleServerInput(c net.Conn) {
 			log.Fatal(err)
 		}
 
-		var msg ClientMessage
-		err = json.Unmarshal(b[:n], &msg)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		fmt.Printf("%s: %s", msg.From, msg.Content)
+		fmt.Printf(string(b[:n]))
 	}
 }
