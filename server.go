@@ -1,12 +1,12 @@
 package main
 
 import (
+	"errors"
+	"io"
 	"log"
 	"net"
 	"strings"
 	"sync"
-    "io"
-    "errors"
 )
 
 type Client struct {
@@ -40,7 +40,7 @@ func main() {
 
 	for {
 		conn, err := l.Accept()
-        log.Printf("Connection acknowledged from client '%s'.", conn.RemoteAddr().String())
+		log.Printf("Connection acknowledged from client '%s'.", conn.RemoteAddr().String())
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -53,20 +53,20 @@ func main() {
 
 func handle(conn net.Conn) {
 	var alias string
-    addr := conn.RemoteAddr().String()
+	addr := conn.RemoteAddr().String()
 
 	for {
 		b := make([]byte, 1024)
 		n, err := conn.Read(b)
 		if err != nil {
-            // client has disconnected or exited unexpectedly.
-            if err == io.EOF {
-                if _, ok := clientPool[addr]; ok {
-                    delete(clientPool, addr)
-                }
-                log.Printf("Client with address '%s' has disconnected.", addr)
-                return
-            }
+			// client has disconnected or exited unexpectedly.
+			if err == io.EOF {
+				if _, ok := clientPool[addr]; ok {
+					delete(clientPool, addr)
+				}
+				log.Printf("Client with address '%s' has disconnected.", addr)
+				return
+			}
 		}
 
 		msg := strings.Fields(string(b[:n]))
@@ -83,8 +83,8 @@ func handle(conn net.Conn) {
 				}
 				alias = content
 			} else {
-                conn.Write([]byte(err.Error()))
-                return
+				conn.Write([]byte(err.Error()))
+				return
 			}
 
 			mu.Unlock()
@@ -105,15 +105,15 @@ func handle(conn net.Conn) {
 }
 
 func validateAlias(a string) error {
-    if a == "" {
-        return errors.New("Alias cannot be empty.")
-    }
+	if a == "" {
+		return errors.New("Alias cannot be empty.")
+	}
 
-    for _, client := range clientPool {
-        if client.Alias == a {
-            return errors.New("The specified alias already exists.")
-        }
-    }
+	for _, client := range clientPool {
+		if client.Alias == a {
+			return errors.New("The specified alias already exists.")
+		}
+	}
 
-    return nil
+	return nil
 }

@@ -7,9 +7,9 @@ import (
 	"log"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
-    "strconv"
 )
 
 var (
@@ -38,14 +38,14 @@ func main() {
 	go handleServerInput()
 
 	reader := bufio.NewScanner(os.Stdin)
-    c := 0
+	c := 0
 	for {
 		clearScreen()
 
 		printMessages()
 
-        c += 1
-		fmt.Print(*aliasFlag + strconv.Itoa(c) +  "> ")
+		c += 1
+		fmt.Print(*aliasFlag + strconv.Itoa(c) + "> ")
 		if !reader.Scan() {
 			break
 		}
