@@ -5,6 +5,8 @@ import (
 	"net"
 	"strings"
 	"sync"
+    "io"
+    "errors"
 )
 
 type Client struct {
@@ -18,11 +20,6 @@ type Client struct {
 // Use this method to message a client through its existing connection.
 func (c *Client) Message(from string, content string) {
 	c.Connection.Write([]byte(from + ": " + content + "\n"))
-}
-
-// Kills the connection to the client.
-func (c *Client) Disconnect() {
-	c.Connection.Close()
 }
 
 const PORT = "2000"
@@ -42,8 +39,8 @@ func main() {
 	log.Printf("Listening on port %s...", PORT)
 
 	for {
-		// Wait for incoming connections.
 		conn, err := l.Accept()
+        log.Printf("Connection acknowledged from client '%s'.", conn.RemoteAddr().String())
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -56,12 +53,20 @@ func main() {
 
 func handle(conn net.Conn) {
 	var alias string
+    addr := conn.RemoteAddr().String()
 
 	for {
 		b := make([]byte, 1024)
 		n, err := conn.Read(b)
 		if err != nil {
-			log.Fatal(err)
+            // client has disconnected or exited unexpectedly.
+            if err == io.EOF {
+                if _, ok := clientPool[addr]; ok {
+                    delete(clientPool, addr)
+                }
+                log.Printf("Client with address '%s' has disconnected.", addr)
+                return
+            }
 		}
 
 		msg := strings.Fields(string(b[:n]))
@@ -71,20 +76,15 @@ func handle(conn net.Conn) {
 		case "CONNECT":
 			mu.Lock()
 
-			// Clients must have a unique alias.
-			// todo: ensure content is an acceptable alias (e.g. no spaces).
-			_, exists := clientPool[content]
-			if !exists {
-				clientPool[content] = &Client{
+			if err := validateAlias(content); err == nil {
+				clientPool[addr] = &Client{
 					Alias:      content,
 					Connection: conn,
 				}
-
-				log.Printf("Client with alias '%s' added to the client pool.\n", content)
-
 				alias = content
 			} else {
-				log.Printf("Client with alias '%s' already exists.\n", content)
+                conn.Write([]byte(err.Error()))
+                return
 			}
 
 			mu.Unlock()
@@ -102,4 +102,18 @@ func handle(conn net.Conn) {
 			log.Printf("Command type '%s' not supported.\n", cmd)
 		}
 	}
+}
+
+func validateAlias(a string) error {
+    if a == "" {
+        return errors.New("Alias cannot be empty.")
+    }
+
+    for _, client := range clientPool {
+        if client.Alias == a {
+            return errors.New("The specified alias already exists.")
+        }
+    }
+
+    return nil
 }

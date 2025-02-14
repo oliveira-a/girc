@@ -7,50 +7,90 @@ import (
 	"log"
 	"net"
 	"os"
+	"strings"
+	"sync"
+    "strconv"
 )
 
-var hostFlag = flag.String("h", "", "the irc host. i.e. localhost")
-var portFlag = flag.String("p", "", "the irc server port number. i.e. 2000.")
-var aliasFlag = flag.String("a", "", "an alias. i.e. andreb")
+var (
+	hostFlag  = flag.String("h", "", "the irc host. i.e. localhost")
+	portFlag  = flag.String("p", "", "the irc server port number. i.e. 2000.")
+	aliasFlag = flag.String("a", "", "an alias. i.e. andreb")
+
+	messages []string
+	conn     net.Conn
+	mu       sync.Mutex
+)
 
 func init() {
 	flag.Parse()
 }
 
 func main() {
-	c, err := net.Dial("tcp", *hostFlag+":"+*portFlag)
+	var err error
+	conn, err = net.Dial("tcp", *hostFlag+":"+*portFlag)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	go handleServerInput(c)
+	connect()
 
-	// todo: refactor this in to a helper function
-	c.Write([]byte("CONNECT " + *aliasFlag))
+	go handleServerInput()
 
-	r := bufio.NewReader(os.Stdin)
+	reader := bufio.NewScanner(os.Stdin)
+    c := 0
 	for {
-		fmt.Print(*aliasFlag + "> ")
-		m, _ := r.ReadString('\n')
+		clearScreen()
 
-		if err != nil {
-			log.Fatal(err)
+		printMessages()
+
+        c += 1
+		fmt.Print(*aliasFlag + strconv.Itoa(c) +  "> ")
+		if !reader.Scan() {
+			break
 		}
-		_, err = c.Write([]byte("MESSAGE " + m))
+		msg := strings.TrimSpace(reader.Text())
+
+		err = sendMessage(msg)
 		if err != nil {
-			log.Fatal(err)
+			fmt.Println(err)
+			os.Exit(1)
 		}
 	}
 }
 
-func handleServerInput(c net.Conn) {
+func printMessages() {
+	for _, msg := range messages {
+		fmt.Println(msg)
+	}
+}
+
+func connect() {
+	conn.Write([]byte("CONNECT " + *aliasFlag))
+}
+
+func sendMessage(m string) error {
+	_, err := conn.Write([]byte("MESSAGE " + m))
+
+	return err
+}
+
+func clearScreen() {
+	fmt.Print("\033[H\033[J")
+}
+
+func handleServerInput() {
 	for {
 		b := make([]byte, 1024)
-		n, err := c.Read(b)
+		n, err := conn.Read(b)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		fmt.Printf(string(b[:n]))
+		mu.Lock()
+
+		messages = append(messages, string(b[:n]))
+
+		mu.Unlock()
 	}
 }
