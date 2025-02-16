@@ -96,13 +96,13 @@ func main() {
 			prompt(ib)
 		case input := <-ui:
 			switch input {
-            case 27:
-                return
+			case 27:
+				return
 			case 127:
 				if len(ib) > 0 {
 					ib = ib[:len(ib)-1]
-                    clearLine()
-                    prompt(ib)
+					clearLine()
+					prompt(ib)
 				}
 			case 13:
 				if len(ib) > 0 {
@@ -111,7 +111,7 @@ func main() {
 						log.Fatal(err)
 					}
 					ib = nil
-                    clearLine()
+					clearLine()
 					moveCursorToLineBegin()
 					prompt(ib)
 				}
@@ -126,7 +126,7 @@ func main() {
 }
 
 func prompt(i []byte) {
-    // move the cursor to the bottom left of the screen.
+	// move the cursor to the bottom left of the screen.
 	printEscape("999E")
 
 	fmt.Printf("%s> %s", *aliasFlag, string(i))
@@ -141,7 +141,7 @@ func moveCursorToOrigin() {
 }
 
 func moveCursorToLineBegin() {
-    printEscape("999D")
+	printEscape("999D")
 }
 func clearScreen() {
 	printEscape("2J")
@@ -154,4 +154,3 @@ func clearLine() {
 func printEscape(ec string) {
 	fmt.Print("\033[" + ec)
 }
-
